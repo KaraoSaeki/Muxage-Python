@@ -1,6 +1,9 @@
-Outil: mux_multi.py
+Outil: muxage (CLI modulaire)
 
-But: Batch-muxer une source VOSTFR (vidéo + VO japonaise + sous-titres + polices) avec uniquement la piste audio FR extraite d'une source VF, afin de produire des MKV MULTi, sans ré-encoder la vidéo ni les sous-titres.
+But: Batch-muxer VOSTFR <-> VF pour produire des MKV MULTi, sans ré-encoder la vidéo ni les sous-titres.
+Deux directions sont possibles via `--direction`:
+- vf_to_vostfr (par défaut): base = VOSTFR (vidéo+subs), donneur = VF (audio FR)
+- vostfr_to_vf: base = VF (vidéo+FR), donneur = VOSTFR (VO+subs)
 
 Prérequis
 - OS: Linux, macOS ou Windows
@@ -24,6 +27,7 @@ Entrées CLI (obligatoires)
 --vostfr-dir  Répertoire des fichiers VOSTFR (ex: MKV full).
 --vf-dir      Répertoire des fichiers VF (peuvent être vidéo ou audio-only: mkv/mp4/mka/flac/aac/etc.).
 --out-dir     Répertoire de sortie.
+--direction   Sens du muxage: `vf_to_vostfr` (défaut) ou `vostfr_to_vf`.
 
 Options
 --offsets-csv Fichier CSV "key,offset_ms" pour appliquer un décalage par épisode (ex: "E07,250" ou "E16,-120"). Positif = ajoute du silence au début; négatif = coupe le début. Le traitement ré-encode la piste VF en FLAC temporaire pour appliquer proprement l’offset.
@@ -76,6 +80,14 @@ Compatibilité
 - Windows/macOS/Linux.
 - Les chemins sont correctement quotés; --dry-run permet d’inspecter les commandes.
  
+Structure modulaire
+- Code CLI: `muxage/cli.py`
+- Utilitaires ffmpeg: `muxage/ffutils.py`
+- Analyse médias (ffprobe, tags, fps): `muxage/media.py`
+- Construction des commandes ffmpeg: `muxage/builder.py`
+- Orchestration des jobs: `muxage/processor.py`
+- Wrapper rétrocompatible: `mux_multi.py` (appelle `muxage.cli`)
+
 Guide d'utilisation
 1) Vérification de l'installation
    - ffmpeg -version
@@ -83,23 +95,32 @@ Guide d'utilisation
 2) Aide et options
    - python mux_multi.py --help
 3) Exécution (exemples)
-   - Windows:
-     - python mux_multi.py --vostfr-dir "D:\Shows\VOSTFR" --vf-dir "D:\Shows\VF" --out-dir "D:\Shows\MULTI"
-   - macOS/Linux:
-     - python3 mux_multi.py --vostfr-dir "/mnt/data/VOSTFR" --vf-dir "/mnt/data/VF" --out-dir "/mnt/data/MULTI"
+   - VF -> VOSTFR (par défaut):
+     - Windows:
+       - python mux_multi.py --vostfr-dir "D:\\Shows\\VOSTFR" --vf-dir "D:\\Shows\\VF" --out-dir "D:\\Shows\\MULTI"
+     - macOS/Linux:
+       - python3 mux_multi.py --vostfr-dir "/mnt/data/VOSTFR" --vf-dir "/mnt/data/VF" --out-dir "/mnt/data/MULTI"
+   - VOSTFR -> VF (inversé):
+     - Windows:
+       - python mux_multi.py --direction vostfr_to_vf --vostfr-dir "D:\\Shows\\VOSTFR" --vf-dir "D:\\Shows\\VF" --out-dir "D:\\Shows\\MULTI"
+     - macOS/Linux:
+       - python3 mux_multi.py --direction vostfr_to_vf --vostfr-dir "/mnt/data/VOSTFR" --vf-dir "/mnt/data/VF" --out-dir "/mnt/data/MULTI"
 4) Dry-run (prévisualisation sans écrire):
    - python mux_multi.py --vostfr-dir "./vostfr" --vf-dir "./vf" --out-dir "./out" --dry-run
 5) Offsets et parallélisme:
    - python mux_multi.py --vostfr-dir "/path/VOSTFR" --vf-dir "/path/VF" --out-dir "/path/MULTI" --offsets-csv offsets.csv --workers 4
 
 Exemples
-1) Exécution simple
-   python mux_multi.py --vostfr-dir "D:\Shows\VOSTFR" --vf-dir "D:\Shows\VF" --out-dir "D:\Shows\MULTI"
+1) VF -> VOSTFR simple
+   python mux_multi.py --vostfr-dir "D:\\Shows\\VOSTFR" --vf-dir "D:\\Shows\\VF" --out-dir "D:\\Shows\\MULTI"
 
-2) Avec offsets et 4 workers
+2) VOSTFR -> VF simple
+   python mux_multi.py --direction vostfr_to_vf --vostfr-dir "/mnt/data/VOSTFR" --vf-dir "/mnt/data/VF" --out-dir "/mnt/data/MULTI"
+
+3) Avec offsets et 4 workers
    python mux_multi.py --vostfr-dir "/mnt/data/VOSTFR" --vf-dir "/mnt/data/VF" --out-dir "/mnt/data/MULTI" --offsets-csv offsets.csv --workers 4
 
-3) Dry-run (sans écrire)
+4) Dry-run (sans écrire)
    python mux_multi.py --vostfr-dir "./vostfr" --vf-dir "./vf" --out-dir "./out" --dry-run
 
 Journalisation
