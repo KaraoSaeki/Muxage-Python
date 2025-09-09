@@ -1,4 +1,5 @@
 Outil: mux_multi.py
+
 But: Batch-muxer une source VOSTFR (vidéo + VO japonaise + sous-titres + polices) avec uniquement la piste audio FR extraite d'une source VF, afin de produire des MKV MULTi, sans ré-encoder la vidéo ni les sous-titres.
 
 Prérequis
