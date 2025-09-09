@@ -1,0 +1,29 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+.venv/
+venv/
+ENV/
+
+# Build / dist
+build/
+dist/
+*.egg-info/
+
+# Temp files
+.temp_mux/
+*.tmp
+*.log
+
+# Generated outputs
+*.MULTi.mkv
