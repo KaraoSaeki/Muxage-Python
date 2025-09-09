@@ -32,6 +32,9 @@ from typing import Dict, List, Optional, Tuple, Any
 # ----------------------------
 
 EP_REGEX = re.compile(r"\b[Ee](\d{2,3})\b")  # strict EXX/EXXX key
+# Relaxed pattern to allow matching 'E01' even when preceded by season tokens like 'S01E01'
+# (drops the leading word-boundary requirement). Enabled via --relax-extract.
+RELAX_EP_REGEX = re.compile(r"(?i)E(\d{2,3})\b")
 LANG_FR_SET = {"fra", "fre", "fr"}
 LANG_JP_SET = {"jpn", "ja", "japanese"}  # heuristics limited to jpn for VO but accept common tags
 EPSILON_FPS = 0.02  # tolerance for fps detection
@@ -232,22 +235,28 @@ def approx_equal(a: float, b: float, tol: float) -> bool:
 # Business logic
 # ----------------------------
 
-def extract_episode_key(name: str) -> Optional[str]:
+def extract_episode_key(name: str, relax: bool = False) -> Optional[str]:
     m = EP_REGEX.search(name)
     if not m:
+        if relax:
+            m2 = RELAX_EP_REGEX.search(name)
+            if not m2:
+                return None
+            digits = m2.group(1)
+            return f"E{digits}"
         return None
     digits = m.group(1)
     return f"E{digits}"
 
 
-def scan_dir_for_keys(directory: Path) -> Dict[str, Path]:
+def scan_dir_for_keys(directory: Path, relax: bool = False) -> Dict[str, Path]:
     mapping: Dict[str, Path] = {}
     for root, _dirs, files in os.walk(directory):
         for f in files:
             # Consider common media files only to reduce noise
             if not any(fnmatch.fnmatch(f.lower(), pat) for pat in ("*.mkv", "*.mp4", "*.m4v", "*.mov", "*.avi", "*.mpg", "*.ts", "*.mka", "*.flac", "*.aac", "*.ac3", "*.dts", "*.opus", "*.mp3", "*.wav", "*.m4a")):
                 continue
-            key = extract_episode_key(f)
+            key = extract_episode_key(f, relax=relax)
             if key:
                 # Prefer the first occurrence; warn on duplicates by choosing the shortest path depth
                 p = Path(root) / f
@@ -630,9 +639,9 @@ def process_episode(job: EpisodeJob) -> JobResult:
 # CLI and orchestration
 # ----------------------------
 
-def list_pairs(vostfr_dir: Path, vf_dir: Path) -> List[Tuple[str, Path, Path]]:
-    vostfr_map = scan_dir_for_keys(vostfr_dir)
-    vf_map = scan_dir_for_keys(vf_dir)
+def list_pairs(vostfr_dir: Path, vf_dir: Path, relax: bool = False) -> List[Tuple[str, Path, Path]]:
+    vostfr_map = scan_dir_for_keys(vostfr_dir, relax=relax)
+    vf_map = scan_dir_for_keys(vf_dir, relax=relax)
     keys = sorted(set(vostfr_map.keys()) & set(vf_map.keys()), key=lambda k: (len(k), k))
     pairs: List[Tuple[str, Path, Path]] = []
     for k in keys:
@@ -658,6 +667,7 @@ def main():
     parser.add_argument("--force", action="store_true", help="Ecraser les fichiers de sortie existants.")
     parser.add_argument("--dry-run", action="store_true", help="Afficher les commandes sans exécuter.")
     parser.add_argument("--no-speedfix", action="store_true", help="Désactiver la détection et l'application auto du PAL speedfix.")
+    parser.add_argument("--relax-extract", action="store_true", help="Assouplir l'extraction du motif d'épisode pour matcher EXX même dans des noms comme S01EXX.")
     args = parser.parse_args()
 
     # Check dependencies
@@ -669,7 +679,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Build pairs
-    pairs = list_pairs(vostfr_dir, vf_dir)
+    pairs = list_pairs(vostfr_dir, vf_dir, relax=bool(args.relax_extract))
     if not pairs:
         print("Aucun appariement trouvé via motif EXX entre VOSTFR et VF.", file=sys.stderr)
         sys.exit(1)
