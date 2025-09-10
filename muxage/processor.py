@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from pathlib import Path
+import shutil
 from typing import List, Optional, Tuple
 
 from .ffutils import check_dependencies, ffprobe_json, run_subprocess, shell_quote_cmd
@@ -14,6 +15,11 @@ from .media import (
 )
 from .models import Direction, EpisodeJob, JobResult, MediaStreams
 from .builder import build_mux_command_vf_to_vostfr, build_mux_command_vostfr_to_vf
+
+
+def derive_export_audio_path(base_file: Path, export_dir: Path) -> Path:
+    base = base_file.stem
+    return export_dir / f"{base}.VF.flac"
 
 
 def build_pairs(dir_a: Path, dir_b: Path, relax: bool = False) -> List[Tuple[str, Path, Path]]:
@@ -145,11 +151,40 @@ def process_episode_vf_to_vostfr(job: EpisodeJob) -> JobResult:
                 speedfix_applied=will_speedfix, offset_applied_ms=job.offset_ms,
             )
 
-        # cleanup temp is responsibility of caller or OS; we keep it simple here.
+        # Optional: export VF audio standalone in FLAC
+        export_audio_path = None
+        export_cmd = None
+        if job.export_vf_audio:
+            export_dir = job.export_audio_dir if job.export_audio_dir is not None else job.out_path.parent
+            export_dir.mkdir(parents=True, exist_ok=True)
+            export_audio_path = derive_export_audio_path(job.base_path, export_dir)
+            if export_audio_path.exists() and not job.force:
+                print(f"[{key}] Audio VF standalone existe déjà (utiliser --force): {export_audio_path}")
+            else:
+                if use_preproc and tmp_audio_path is not None:
+                    if not job.dry_run:
+                        shutil.copy2(tmp_audio_path, export_audio_path)
+                    else:
+                        export_cmd = ["copy", str(tmp_audio_path), str(export_audio_path)]
+                        print(f"[{key}] Copie audio VF: {shell_quote_cmd(export_cmd)}")
+                else:
+                    export_cmd = [
+                        "ffmpeg", "-y", "-v", "error",
+                        "-i", str(job.donor_path),
+                        "-map", f"0:{fr_idx}",
+                        "-vn", "-sn",
+                        "-c:a", "flac",
+                        str(export_audio_path)
+                    ]
+                    rc_exp = run_subprocess(export_cmd, dry_run=job.dry_run)
+                    if rc_exp != 0:
+                        print(f"[{key}] Échec export audio VF.")
+
         return JobResult(
             key=key, success=True, message=f"OK: {job.out_path.name}", ffmpeg_mux_cmd=mux_cmd,
             ffmpeg_preproc_cmd=preproc_cmd, chosen_fr_stream_index=fr_idx, vo_jpn_stream_index=vo_jpn_idx,
             speedfix_applied=will_speedfix, offset_applied_ms=job.offset_ms, output_path=job.out_path,
+            export_audio_path=export_audio_path, ffmpeg_export_cmd=export_cmd,
         )
 
     except Exception as e:
@@ -240,6 +275,8 @@ def run_batch(
     dry_run: bool,
     no_speedfix: bool,
     relax_extract: bool,
+    export_vf_audio: bool = False,
+    export_audio_dir: Path | None = None,
 ) -> int:
     """
     Run batch processing.
@@ -275,6 +312,8 @@ def run_batch(
             dry_run=dry_run,
             force=force,
             no_speedfix=no_speedfix,
+            export_vf_audio=export_vf_audio,
+            export_audio_dir=export_audio_dir,
         ))
 
     print(f"Jobs: {len(jobs)} épisodes appariés.")

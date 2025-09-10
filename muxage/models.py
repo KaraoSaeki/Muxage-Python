@@ -49,6 +49,9 @@ class EpisodeJob:
     dry_run: bool = False
     force: bool = False
     no_speedfix: bool = False
+    # export options
+    export_vf_audio: bool = False
+    export_audio_dir: Optional[Path] = None
 
 
 @dataclass
@@ -63,6 +66,9 @@ class JobResult:
     speedfix_applied: bool = False
     offset_applied_ms: int = 0
     output_path: Optional[Path] = None
+    # optional export outputs/logs
+    export_audio_path: Optional[Path] = None
+    ffmpeg_export_cmd: Optional[List[str]] = None
 
 
 class Direction:
