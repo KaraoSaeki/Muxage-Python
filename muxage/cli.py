@@ -31,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--relax-extract", action="store_true", help="Assouplir l'extraction du motif EXX (ex: S01E01)")
     parser.add_argument("--export-vf-audio", action="store_true", help="Exporter la piste audio VF en FLAC en plus du MKV final.")
     parser.add_argument("--export-audio-dir", type=Path, default=None, help="Répertoire cible pour les FLAC exportés (par défaut: --out-dir)")
+    parser.add_argument("--default-vf", action="store_true", help="Rendre la piste VF par défaut dans le MKV final (au lieu de la VO jpn).")
 
     args = parser.parse_args(argv)
 
@@ -63,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         relax_extract=bool(args.relax_extract),
         export_vf_audio=bool(args.export_vf_audio),
         export_audio_dir=args.export_audio_dir,
+        default_vf=bool(args.default_vf),
     )
 
 

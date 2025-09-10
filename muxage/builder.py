@@ -14,7 +14,9 @@ def build_mux_command_vf_to_vostfr(
     vo_jpn_stream_index_in_vostfr: int,
     fr_stream_index_in_vf: Optional[int],
     vostfr_ms: MediaStreams,
+    vf_ms: MediaStreams,
     out_path: Path,
+    default_vf: bool = False,
 ) -> List[str]:
     """Build mux command for VF -> VOSTFR (base = VOSTFR video, donor = VF audio FR)."""
     cmd: List[str] = [
@@ -37,7 +39,12 @@ def build_mux_command_vf_to_vostfr(
         if fr_stream_index_in_vf is None:
             cmd += ["-map", "1:a:0"]
         else:
-            cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            # Use relative audio order to avoid absolute index pitfalls
+            try:
+                rel_pos = vf_ms.audio_indices.index(fr_stream_index_in_vf)
+                cmd += ["-map", f"1:a:{rel_pos}"]
+            except ValueError:
+                cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
     # Subs all from 0
     if vostfr_ms.subtitle_indices:
         cmd += ["-map", "0:s?"]
@@ -47,15 +54,26 @@ def build_mux_command_vf_to_vostfr(
     # Codecs
     cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
 
-    # Metadata: a:0 VO jpn default, a:1 FR
-    cmd += [
-        "-metadata:s:a:0", "language=jpn",
-        "-metadata:s:a:0", "title=VO (Japonais)",
-        "-disposition:a:0", "default",
-        "-metadata:s:a:1", "language=fra",
-        "-metadata:s:a:1", "title=VF",
-        "-disposition:a:1", "0",
-    ]
+    # Metadata and dispositions
+    if default_vf:
+        # Make VF default
+        cmd += [
+            "-metadata:s:a:0", "language=jpn",
+            "-metadata:s:a:0", "title=VO (Japonais)",
+            "-disposition:a:0", "0",
+            "-metadata:s:a:1", "language=fra",
+            "-metadata:s:a:1", "title=VF",
+            "-disposition:a:1", "default",
+        ]
+    else:
+        cmd += [
+            "-metadata:s:a:0", "language=jpn",
+            "-metadata:s:a:0", "title=VO (Japonais)",
+            "-disposition:a:0", "default",
+            "-metadata:s:a:1", "language=fra",
+            "-metadata:s:a:1", "title=VF",
+            "-disposition:a:1", "0",
+        ]
 
     # Default FR subtitle
     fr_sub_idx = first_fr_subtitle_index(vostfr_ms)
@@ -79,6 +97,7 @@ def build_mux_command_vostfr_to_vf(
     fr_stream_index_in_vf: Optional[int],
     vostfr_ms: MediaStreams,
     out_path: Path,
+    default_vf: bool = False,
 ) -> List[str]:
     """Build mux command for VOSTFR -> VF (base = VF video+FR, donor = VOSTFR VO+subs)."""
     cmd: List[str] = [

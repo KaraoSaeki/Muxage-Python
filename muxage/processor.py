@@ -3,6 +3,7 @@ from __future__ import annotations
 import concurrent.futures
 from pathlib import Path
 import shutil
+import re
 from typing import List, Optional, Tuple
 
 from .ffutils import check_dependencies, ffprobe_json, run_subprocess, shell_quote_cmd
@@ -139,7 +140,9 @@ def process_episode_vf_to_vostfr(job: EpisodeJob) -> JobResult:
             vo_jpn_stream_index_in_vostfr=vo_jpn_idx,
             fr_stream_index_in_vf=fr_idx if not use_preproc else None,
             vostfr_ms=set_ms,
+            vf_ms=vf_ms,
             out_path=job.out_path,
+            default_vf=False,
         )
 
         job.out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -277,6 +280,7 @@ def run_batch(
     relax_extract: bool,
     export_vf_audio: bool = False,
     export_audio_dir: Path | None = None,
+    default_vf: bool = False,
 ) -> int:
     """
     Run batch processing.
@@ -293,16 +297,22 @@ def run_batch(
         return 1
 
     jobs: List[EpisodeJob] = []
+    def _derive_out(stem: str) -> str:
+        # Remplace VF/VOSTFR (insensible à la casse) par MULTi dans le nom
+        s = re.sub(r"(?i)\bVOSTFR\b", "MULTi", stem)
+        s = re.sub(r"(?i)\bVF\b", "MULTi", s)
+        return s
+
     for key, a_path, b_path in pairs:
         offset_ms = offsets_map.get(key, 0)
         if direction == Direction.VF_TO_VOSTFR:
             base_path = a_path  # VOSTFR
             donor_path = b_path  # VF
-            out_path = out_dir / f"{base_path.stem}.MULTi.mkv"
+            out_path = out_dir / f"{_derive_out(base_path.stem)}.mkv"
         else:
             base_path = a_path  # VF
             donor_path = b_path  # VOSTFR
-            out_path = out_dir / f"{base_path.stem}.MULTi.mkv"
+            out_path = out_dir / f"{_derive_out(base_path.stem)}.mkv"
         jobs.append(EpisodeJob(
             key=key,
             base_path=base_path,
