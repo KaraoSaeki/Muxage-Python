@@ -39,12 +39,8 @@ def build_mux_command_vf_to_vostfr(
         if fr_stream_index_in_vf is None:
             cmd += ["-map", "1:a:0"]
         else:
-            # Use relative audio order to avoid absolute index pitfalls
-            try:
-                rel_pos = vf_ms.audio_indices.index(fr_stream_index_in_vf)
-                cmd += ["-map", f"1:a:{rel_pos}"]
-            except ValueError:
-                cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            # Map by absolute index in input 1
+            cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
     # Subs all from 0
     if vostfr_ms.subtitle_indices:
         cmd += ["-map", "0:s?"]

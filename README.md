@@ -35,6 +35,10 @@ Options
 --force       Écrase un fichier de sortie existant.
 --dry-run     Affiche toutes les commandes ffmpeg exécutées sans rien écrire.
 --no-speedfix Désactive la correction de vitesse PAL.
+--relax-extract Assouplit l'extraction du motif EXX pour détecter des noms comme `S01E01` (extrait `E01`).
+--export-vf-audio Exporte la piste audio VF en FLAC en plus du MKV final.
+--export-audio-dir Répertoire cible des FLAC exportés (défaut: `--out-dir`).
+--default-vf  Rend la piste VF par défaut dans le MKV (sinon VO jpn par défaut).
 
 Appariement des épisodes
 - Le script apparie VOSTFR et VF exclusivement via le motif EXX/EXXX (insensible à la casse) extrait par la regex stricte: \b[Ee](\d{2,3})\b.
@@ -69,7 +73,7 @@ Tags et dispositions
 - Audio 1: VF — language=fra, title="VF".
 - Sous-titres FR (s’ils existent côté VOSTFR): marqués comme sous-titres par défaut.
 - Les chapitres détectés côté VOSTFR sont préservés (map_chapters 0).
-- Sortie: <nom_VOSTFR_sans_ext>.MULTi.mkv dans --out-dir.
+- Sortie: nom basé sur le fichier de base (selon `--direction`) avec remplacement automatique de `VF`/`VOSTFR` par `MULTi` (insensible à la casse), dans `--out-dir`.
 
 Codecs
 - Aucune ré-encodage vidéo ni sous-titres: -c:v copy, -c:s copy.
@@ -109,6 +113,11 @@ Guide d'utilisation
    - python mux_multi.py --vostfr-dir "./vostfr" --vf-dir "./vf" --out-dir "./out" --dry-run
 5) Offsets et parallélisme:
    - python mux_multi.py --vostfr-dir "/path/VOSTFR" --vf-dir "/path/VF" --out-dir "/path/MULTI" --offsets-csv offsets.csv --workers 4
+6) Extraction souple (SxxEyy) et export FLAC VF:
+   - python mux_multi.py --relax-extract --export-vf-audio --export-audio-dir "./VF_FLAC" \
+     --vostfr-dir "./vostfr" --vf-dir "./vf" --out-dir "./out"
+7) VF piste par défaut:
+   - python mux_multi.py --default-vf --vostfr-dir "./vostfr" --vf-dir "./vf" --out-dir "./out"
 
 Exemples
 1) VF -> VOSTFR simple
@@ -140,6 +149,12 @@ Codes de sortie
 Remarques
 - Le script se base sur les tags de langue; si les fichiers sont mal tagués, adaptez les sources ou corrigez les métadonnées.
 - Le mapping par langage pour VO est strictement orienté vers 'jpn'; si aucune piste n’est taguée 'jpn', l’épisode est rejeté.
+ 
+### Dépannage sous-titres
+- Si les sous-titres n’apparaissent pas dans le MKV final:
+  - Vérifiez que le fichier VOSTFR contient bien des sous-titres internes: `ffprobe -v error -select_streams s -show_streams "vostfr.mkv"`.
+  - Les sous-titres externes (.ass/.srt) dans le dossier ne sont pas importés automatiquement (feature à venir si besoin).
+  - En mode VF->VOSTFR (par défaut), les sous-titres proviennent toujours de l’entrée VOSTFR (`-map 0:s?`).
  
 Notes pour dépôt GitHub public
 - Licence: MIT (voir fichier LICENSE).
