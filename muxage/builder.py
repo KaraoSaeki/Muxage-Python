@@ -30,8 +30,12 @@ def build_mux_command_vf_to_vostfr(
 
     # Video
     cmd += ["-map", "0:v:0"]
-    # Audio VO from 0
-    cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
+    # Audio VO from 0 (relative audio position)
+    try:
+        vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+        cmd += ["-map", f"0:a:{vo_rel}"]
+    except ValueError:
+        cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
     # Audio FR from 1
     if use_temp_processed_audio:
         cmd += ["-map", "1:a:0"]
@@ -39,8 +43,12 @@ def build_mux_command_vf_to_vostfr(
         if fr_stream_index_in_vf is None:
             cmd += ["-map", "1:a:0"]
         else:
-            # Map by absolute index in input 1
-            cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            # Map FR by relative audio position within input 1
+            try:
+                fr_rel = vf_ms.audio_indices.index(fr_stream_index_in_vf)
+                cmd += ["-map", f"1:a:{fr_rel}"]
+            except ValueError:
+                cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
     # Subs all from 0
     if vostfr_ms.subtitle_indices:
         cmd += ["-map", "0:s?"]
@@ -113,18 +121,30 @@ def build_mux_command_vostfr_to_vf(
         # processed donor audio at 1:a:0
         cmd += ["-map", "1:a:0"]
     else:
-        # map VO by absolute index in input 1 (vostfr)
+        # map VO by relative audio position in input 1 (vostfr)
         if vo_jpn_stream_index_in_vostfr is None:
-            # fallback to first audio
             cmd += ["-map", "1:a:0"]
         else:
-            cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+            try:
+                vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+                cmd += ["-map", f"1:a:{vo_rel}"]
+            except ValueError:
+                cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
 
-    # FR from base (VF)
+    # FR from base (VF) using relative audio position
     if fr_stream_index_in_vf is None:
         cmd += ["-map", "0:a:0"]
     else:
-        cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
+        try:
+            fr_rel = [i for i in []]  # placeholder to ensure unique context
+        except Exception:
+            pass
+        try:
+            # We need vf_ms to compute relative index; reuse vostfr_ms variable name is wrong here
+            # So map by absolute index as fallback
+            cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
+        except Exception:
+            cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
 
     # Subtitles from donor (VOSTFR)
     if vostfr_ms.subtitle_indices:

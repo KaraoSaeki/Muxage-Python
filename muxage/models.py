@@ -52,6 +52,8 @@ class EpisodeJob:
     # export options
     export_vf_audio: bool = False
     export_audio_dir: Optional[Path] = None
+    # force preprocessing donor audio to FLAC even without offset/speedfix
+    force_audio_preproc: bool = False
 
 
 @dataclass
