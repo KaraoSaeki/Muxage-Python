@@ -31,27 +31,45 @@ def build_mux_command_vf_to_vostfr(
     # Video from VOSTFR
     cmd += ["-map", "0:v:0"]
 
-    # Audio VO from VOSTFR using relative audio index when possible
-    try:
-        vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
-        cmd += ["-map", f"0:a:{vo_rel}"]
-    except Exception:
-        cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
-
-    # Audio FR from VF input
-    if use_temp_processed_audio:
-        # Processed donor FLAC has single audio stream
-        cmd += ["-map", "1:a:0"]
-    else:
-        # Prefer relative audio position in input 1 when we know the absolute index
-        if fr_stream_index_in_vf is not None:
-            try:
-                fr_rel = vf_ms.audio_indices.index(fr_stream_index_in_vf)
-                cmd += ["-map", f"1:a:{fr_rel}"]
-            except Exception:
-                cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
-        else:
+    # Audio mapping order
+    if default_vf:
+        # Put VF first (a:0), VO second (a:1)
+        # VF from input 1
+        if use_temp_processed_audio:
             cmd += ["-map", "1:a:0"]
+        else:
+            if fr_stream_index_in_vf is not None:
+                try:
+                    fr_rel = vf_ms.audio_indices.index(fr_stream_index_in_vf)
+                    cmd += ["-map", f"1:a:{fr_rel}"]
+                except Exception:
+                    cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            else:
+                cmd += ["-map", "1:a:0"]
+        # VO from input 0
+        try:
+            vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+            cmd += ["-map", f"0:a:{vo_rel}"]
+        except Exception:
+            cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
+    else:
+        # VO first (a:0), VF second (a:1)
+        try:
+            vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+            cmd += ["-map", f"0:a:{vo_rel}"]
+        except Exception:
+            cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
+        if use_temp_processed_audio:
+            cmd += ["-map", "1:a:0"]
+        else:
+            if fr_stream_index_in_vf is not None:
+                try:
+                    fr_rel = vf_ms.audio_indices.index(fr_stream_index_in_vf)
+                    cmd += ["-map", f"1:a:{fr_rel}"]
+                except Exception:
+                    cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            else:
+                cmd += ["-map", "1:a:0"]
 
     # Subtitles and attachments from VOSTFR
     if vostfr_ms.subtitle_indices:
@@ -59,20 +77,38 @@ def build_mux_command_vf_to_vostfr(
     cmd += ["-map", "0:t?"]
 
     # Codecs
-    cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
+    if use_temp_processed_audio:
+        # If VF is first (default_vf), encode a:0 as flac; else encode a:1 as flac
+        if default_vf:
+            cmd += [
+                "-c:v", "copy",
+                "-c:s", "copy",
+                "-c:a:0", "flac",
+                "-c:a:1", "copy",
+            ]
+        else:
+            cmd += [
+                "-c:v", "copy",
+                "-c:s", "copy",
+                "-c:a:0", "copy",
+                "-c:a:1", "flac",
+            ]
+    else:
+        cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
 
     # Metadata and dispositions
     if default_vf:
-        # VF default
+        # a:0 = VF, a:1 = VO
         cmd += [
-            "-metadata:s:a:0", "language=jpn",
-            "-metadata:s:a:0", "title=VO (Japonais)",
-            "-disposition:a:0", "0",
-            "-metadata:s:a:1", "language=fra",
-            "-metadata:s:a:1", "title=VF",
-            "-disposition:a:1", "default",
+            "-metadata:s:a:0", "language=fra",
+            "-metadata:s:a:0", "title=VF",
+            "-disposition:a:0", "default",
+            "-metadata:s:a:1", "language=jpn",
+            "-metadata:s:a:1", "title=VO (Japonais)",
+            "-disposition:a:1", "0",
         ]
     else:
+        # a:0 = VO, a:1 = VF
         cmd += [
             "-metadata:s:a:0", "language=jpn",
             "-metadata:s:a:0", "title=VO (Japonais)",
@@ -119,44 +155,81 @@ def build_mux_command_vostfr_to_vf(
     # Video from VF
     cmd += ["-map", "0:v:0"]
 
-    # VO from donor (VOSTFR) using relative audio index when possible
-    if use_temp_processed_audio:
-        cmd += ["-map", "1:a:0"]
-    else:
-        if vo_jpn_stream_index_in_vostfr is not None:
-            try:
-                vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
-                cmd += ["-map", f"1:a:{vo_rel}"]
-            except Exception:
-                cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+    # Audio mapping order
+    if default_vf:
+        # Put VF first (a:0) from base (input 0), then VO (a:1) from donor (input 1)
+        if fr_stream_index_in_vf is not None:
+            cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
         else:
+            cmd += ["-map", "0:a:0"]
+        if use_temp_processed_audio:
             cmd += ["-map", "1:a:0"]
-
-    # FR from base (VF) — we may only have absolute index; fallback to first audio
-    if fr_stream_index_in_vf is not None:
-        cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
+        else:
+            if vo_jpn_stream_index_in_vostfr is not None:
+                try:
+                    vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+                    cmd += ["-map", f"1:a:{vo_rel}"]
+                except Exception:
+                    cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+            else:
+                cmd += ["-map", "1:a:0"]
     else:
-        cmd += ["-map", "0:a:0"]
+        # VO first (a:0) from donor, VF second (a:1) from base
+        if use_temp_processed_audio:
+            cmd += ["-map", "1:a:0"]
+        else:
+            if vo_jpn_stream_index_in_vostfr is not None:
+                try:
+                    vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+                    cmd += ["-map", f"1:a:{vo_rel}"]
+                except Exception:
+                    cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+            else:
+                cmd += ["-map", "1:a:0"]
+        if fr_stream_index_in_vf is not None:
+            cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
+        else:
+            cmd += ["-map", "0:a:0"]
 
     # Subtitles and attachments from donor (VOSTFR)
     if vostfr_ms.subtitle_indices:
         cmd += ["-map", "1:s?"]
     cmd += ["-map", "1:t?"]
 
-    # Codecs copy
-    cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
+    # Codecs
+    if use_temp_processed_audio:
+        # If default_vf, a:0 = VF (copy), a:1 = VO (flac) OR vice-versa depending on which was preprocessed.
+        if default_vf:
+            # Here, donor VO is preprocessed; VF is from base
+            cmd += [
+                "-c:v", "copy",
+                "-c:s", "copy",
+                "-c:a:0", "copy",
+                "-c:a:1", "flac",
+            ]
+        else:
+            cmd += [
+                "-c:v", "copy",
+                "-c:s", "copy",
+                "-c:a:0", "flac",
+                "-c:a:1", "copy",
+            ]
+    else:
+        cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
 
     # Metadata and dispositions
     if default_vf:
+        # a:0 = VF, a:1 = VO
         cmd += [
-            "-metadata:s:a:0", "language=jpn",
-            "-metadata:s:a:0", "title=VO (Japonais)",
-            "-disposition:a:0", "0",
-            "-metadata:s:a:1", "language=fra",
-            "-metadata:s:a:1", "title=VF",
-            "-disposition:a:1", "default",
+            "-metadata:s:a:0", "language=fra",
+            "-metadata:s:a:0", "title=VF",
+            "-disposition:a:0", "default",
+            "-metadata:s:a:1", "language=jpn",
+            "-metadata:s:a:1", "title=VO (Japonais)",
+            "-disposition:a:1", "0",
         ]
     else:
+        # a:0 = VO, a:1 = VF
         cmd += [
             "-metadata:s:a:0", "language=jpn",
             "-metadata:s:a:0", "title=VO (Japonais)",
