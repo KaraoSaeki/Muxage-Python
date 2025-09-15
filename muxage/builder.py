@@ -31,25 +31,27 @@ def build_mux_command_vf_to_vostfr(
     # Video from VOSTFR
     cmd += ["-map", "0:v:0"]
 
-    # Audio VO from VOSTFR (prefer language-based mapping, fallback to absolute index)
-    cmd += ["-map", "0:a:m:language:jpn?"]
-    # Fallback only if jpn tag missing: also add the absolute stream index
-    if vo_jpn_stream_index_in_vostfr is not None:
-        try:
-            # If the language-based map didn't select anything, ffmpeg will ignore it and use the next -map
-            cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
-        except Exception:
-            pass
+    # Audio VO from VOSTFR using relative audio index when possible
+    try:
+        vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+        cmd += ["-map", f"0:a:{vo_rel}"]
+    except Exception:
+        cmd += ["-map", f"0:{vo_jpn_stream_index_in_vostfr}"]
 
     # Audio FR from VF input
     if use_temp_processed_audio:
         # Processed donor FLAC has single audio stream
         cmd += ["-map", "1:a:0"]
     else:
-        # Prefer language-based mapping for FR, fallback to absolute index within input 1
-        cmd += ["-map", "1:a:m:language:fra?"]
+        # Prefer relative audio position in input 1 when we know the absolute index
         if fr_stream_index_in_vf is not None:
-            cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+            try:
+                fr_rel = vf_ms.audio_indices.index(fr_stream_index_in_vf)
+                cmd += ["-map", f"1:a:{fr_rel}"]
+            except Exception:
+                cmd += ["-map", f"1:{fr_stream_index_in_vf}"]
+        else:
+            cmd += ["-map", "1:a:0"]
 
     # Subtitles and attachments from VOSTFR
     if vostfr_ms.subtitle_indices:
@@ -117,18 +119,24 @@ def build_mux_command_vostfr_to_vf(
     # Video from VF
     cmd += ["-map", "0:v:0"]
 
-    # VO from donor (VOSTFR) — prefer language mapping
+    # VO from donor (VOSTFR) using relative audio index when possible
     if use_temp_processed_audio:
         cmd += ["-map", "1:a:0"]
     else:
-        cmd += ["-map", "1:a:m:language:jpn?"]
         if vo_jpn_stream_index_in_vostfr is not None:
-            cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+            try:
+                vo_rel = vostfr_ms.audio_indices.index(vo_jpn_stream_index_in_vostfr)
+                cmd += ["-map", f"1:a:{vo_rel}"]
+            except Exception:
+                cmd += ["-map", f"1:{vo_jpn_stream_index_in_vostfr}"]
+        else:
+            cmd += ["-map", "1:a:0"]
 
-    # FR from base (VF) — prefer language mapping
-    cmd += ["-map", "0:a:m:language:fra?"]
+    # FR from base (VF) — we may only have absolute index; fallback to first audio
     if fr_stream_index_in_vf is not None:
         cmd += ["-map", f"0:{fr_stream_index_in_vf}"]
+    else:
+        cmd += ["-map", "0:a:0"]
 
     # Subtitles and attachments from donor (VOSTFR)
     if vostfr_ms.subtitle_indices:
