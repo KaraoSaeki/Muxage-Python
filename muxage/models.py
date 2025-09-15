@@ -54,6 +54,8 @@ class EpisodeJob:
     export_audio_dir: Optional[Path] = None
     # force preprocessing donor audio to FLAC even without offset/speedfix
     force_audio_preproc: bool = False
+    # make VF the default and first track in output when True
+    default_vf: bool = False
 
 
 @dataclass

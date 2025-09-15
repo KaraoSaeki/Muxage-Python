@@ -142,7 +142,7 @@ def process_episode_vf_to_vostfr(job: EpisodeJob) -> JobResult:
             vostfr_ms=set_ms,
             vf_ms=vf_ms,
             out_path=job.out_path,
-            default_vf=False,
+            default_vf=bool(getattr(job, "default_vf", False)),
         )
 
         job.out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -246,6 +246,7 @@ def process_episode_vostfr_to_vf(job: EpisodeJob) -> JobResult:
             fr_stream_index_in_vf=fr_idx,
             vostfr_ms=vostfr_ms,
             out_path=job.out_path,
+            default_vf=bool(getattr(job, "default_vf", False)),
         )
 
         job.out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,6 +327,7 @@ def run_batch(
             export_vf_audio=export_vf_audio,
             export_audio_dir=export_audio_dir,
             force_audio_preproc=force_audio_preproc,
+            default_vf=default_vf,
         ))
 
     print(f"Jobs: {len(jobs)} épisodes appariés.")
