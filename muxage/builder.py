@@ -84,6 +84,8 @@ def build_mux_command_vf_to_vostfr(
                 "-c:v", "copy",
                 "-c:s", "copy",
                 "-c:a:0", "flac",
+                "-ar:a:0", "48000",
+                "-ac:a:0", "2",
                 "-c:a:1", "copy",
             ]
         else:
@@ -92,6 +94,8 @@ def build_mux_command_vf_to_vostfr(
                 "-c:s", "copy",
                 "-c:a:0", "copy",
                 "-c:a:1", "flac",
+                "-ar:a:1", "48000",
+                "-ac:a:1", "2",
             ]
     else:
         cmd += ["-c:v", "copy", "-c:s", "copy", "-c:a", "copy"]
@@ -206,12 +210,16 @@ def build_mux_command_vostfr_to_vf(
                 "-c:s", "copy",
                 "-c:a:0", "copy",
                 "-c:a:1", "flac",
+                "-ar:a:1", "48000",
+                "-ac:a:1", "2",
             ]
         else:
             cmd += [
                 "-c:v", "copy",
                 "-c:s", "copy",
                 "-c:a:0", "flac",
+                "-ar:a:0", "48000",
+                "-ac:a:0", "2",
                 "-c:a:1", "copy",
             ]
     else:
