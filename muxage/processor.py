@@ -112,7 +112,7 @@ def process_episode_vf_to_vostfr(job: EpisodeJob) -> JobResult:
         if job.out_path.exists() and not job.force:
             return JobResult(key=key, success=False, message=f"Sortie existe déjà (utilisez --force): {job.out_path}")
 
-        use_preproc = will_speedfix or (job.offset_ms != 0)
+        use_preproc = will_speedfix or (job.offset_ms != 0) or bool(getattr(job, "force_audio_preproc", False))
         tmp_audio_path = None
         preproc_cmd = None
         if use_preproc:
@@ -281,6 +281,7 @@ def run_batch(
     export_vf_audio: bool = False,
     export_audio_dir: Path | None = None,
     default_vf: bool = False,
+    force_audio_preproc: bool = False,
 ) -> int:
     """
     Run batch processing.
@@ -324,6 +325,7 @@ def run_batch(
             no_speedfix=no_speedfix,
             export_vf_audio=export_vf_audio,
             export_audio_dir=export_audio_dir,
+            force_audio_preproc=force_audio_preproc,
         ))
 
     print(f"Jobs: {len(jobs)} épisodes appariés.")

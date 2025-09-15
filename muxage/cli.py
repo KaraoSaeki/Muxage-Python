@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--export-vf-audio", action="store_true", help="Exporter la piste audio VF en FLAC en plus du MKV final.")
     parser.add_argument("--export-audio-dir", type=Path, default=None, help="Répertoire cible pour les FLAC exportés (par défaut: --out-dir)")
     parser.add_argument("--default-vf", action="store_true", help="Rendre la piste VF par défaut dans le MKV final (au lieu de la VO jpn).")
+    parser.add_argument("--force-audio-preproc", action="store_true", help="Toujours prétraiter l'audio donneur en FLAC (même sans offset/speedfix) pour éviter des cas de piste muette.")
 
     args = parser.parse_args(argv)
 
@@ -65,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         export_vf_audio=bool(args.export_vf_audio),
         export_audio_dir=args.export_audio_dir,
         default_vf=bool(args.default_vf),
+        force_audio_preproc=bool(args.force_audio_preproc),
     )
 
 
